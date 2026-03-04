@@ -94,6 +94,25 @@ type TemplateMessageRequest struct {
 	Data       json.RawMessage `json:"data"`
 }
 
+// WxaCodeLineColor 小程序码线条颜色（RGB 十进制字符串）。
+type WxaCodeLineColor struct {
+	R string `json:"r"`
+	G string `json:"g"`
+	B string `json:"b"`
+}
+
+// WxaCodeUnlimitedRequest 对应 wxacode.getUnlimited 请求体。
+type WxaCodeUnlimitedRequest struct {
+	Scene     string            `json:"scene"`
+	Page      string            `json:"page,omitempty"`
+	CheckPath *bool             `json:"check_path,omitempty"`
+	EnvVer    string            `json:"env_version,omitempty"`
+	Width     int               `json:"width,omitempty"`
+	AutoColor *bool             `json:"auto_color,omitempty"`
+	LineColor *WxaCodeLineColor `json:"line_color,omitempty"`
+	IsHyaline *bool             `json:"is_hyaline,omitempty"`
+}
+
 // ErrorInterceptor 用于在错误返回前做统一拦截（包装、打点、上报等）。
 type ErrorInterceptor func(ctx context.Context, err error) error
 
@@ -220,6 +239,53 @@ func (c *Client) doJSON(ctx context.Context, method, path string, query url.Valu
 		return c.wrapError(ctx, fmt.Errorf("decode wechat response failed: %w", err))
 	}
 	return nil
+}
+
+// doBinary 处理返回二进制内容的接口（如小程序码）。
+// 若微信返回 JSON 错误对象（errcode/errmsg），会自动转成 APIError。
+func (c *Client) doBinary(ctx context.Context, method, path string, query url.Values, body []byte) ([]byte, error) {
+	apiURL := c.baseURL + path
+	if len(query) > 0 {
+		apiURL += "?" + query.Encode()
+	}
+
+	var payload io.Reader
+	if len(body) > 0 {
+		payload = bytes.NewReader(body)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, method, apiURL, payload)
+	if err != nil {
+		return nil, c.wrapError(ctx, err)
+	}
+	if method == http.MethodPost {
+		req.Header.Set("Content-Type", "application/json")
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, c.wrapError(ctx, err)
+	}
+	defer resp.Body.Close()
+
+	respBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, c.wrapError(ctx, err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, c.wrapError(ctx, fmt.Errorf("wechat http status %d: %s", resp.StatusCode, strings.TrimSpace(string(respBytes))))
+	}
+
+	trimmed := strings.TrimSpace(string(respBytes))
+	if strings.HasPrefix(trimmed, "{") {
+		var baseResp BaseResponse
+		if err := json.Unmarshal(respBytes, &baseResp); err == nil {
+			if err := baseResp.Check(); err != nil {
+				return nil, c.wrapError(ctx, err)
+			}
+		}
+	}
+	return respBytes, nil
 }
 
 // shouldRetry 仅在可恢复错误时触发重试，避免无意义重放。
@@ -458,6 +524,29 @@ func (c *Client) FetchWxSign(ctx context.Context, appID, appSecret, targetURL st
 	}, nil
 }
 
+// FetchWxaCodeUnlimited 生成小程序码（wxacode.getUnlimited）。
+// 成功返回图片二进制，失败返回微信 JSON 错误对象。
+func (c *Client) FetchWxaCodeUnlimited(ctx context.Context, accessToken string, req WxaCodeUnlimitedRequest) ([]byte, error) {
+	scene := strings.TrimSpace(req.Scene)
+	if scene == "" {
+		return nil, c.wrapError(ctx, fmt.Errorf("scene is required"))
+	}
+	if len(scene) > 32 {
+		return nil, c.wrapError(ctx, fmt.Errorf("scene length must be <= 32"))
+	}
+	if req.Width != 0 && (req.Width < 280 || req.Width > 1280) {
+		return nil, c.wrapError(ctx, fmt.Errorf("width must be between 280 and 1280"))
+	}
+	req.Scene = scene
+
+	query := url.Values{"access_token": {accessToken}}
+	body, err := json.Marshal(req)
+	if err != nil {
+		return nil, c.wrapError(ctx, fmt.Errorf("marshal wxacode request failed: %w", err))
+	}
+	return c.doBinary(ctx, http.MethodPost, "/wxa/getwxacodeunlimit", query, body)
+}
+
 // generateNonce 生成指定长度随机字符串（字母数字）。
 func generateNonce(length int) (string, error) {
 	if length <= 0 {
@@ -534,4 +623,9 @@ func WechatFetchSnsRefreshToken(ctx context.Context, appID, refreshToken string)
 // WechatFetchWxSign 生成公众号签名参数。
 func WechatFetchWxSign(ctx context.Context, appID, appSecret, targetURL string) (*WxSignResult, error) {
 	return defaultClient.FetchWxSign(ctx, appID, appSecret, targetURL)
+}
+
+// WechatFetchWxaCodeUnlimited 生成小程序码（无限制数量场景）。
+func WechatFetchWxaCodeUnlimited(ctx context.Context, accessToken string, req WxaCodeUnlimitedRequest) ([]byte, error) {
+	return defaultClient.FetchWxaCodeUnlimited(ctx, accessToken, req)
 }

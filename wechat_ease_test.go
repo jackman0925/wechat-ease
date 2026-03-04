@@ -226,6 +226,85 @@ func TestFetchWxSign(t *testing.T) {
 	}
 }
 
+func TestFetchWxaCodeUnlimited(t *testing.T) {
+	t.Run("success_binary", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path != "/wxa/getwxacodeunlimit" {
+				t.Fatalf("unexpected path: %s", r.URL.Path)
+			}
+			if r.URL.Query().Get("access_token") != "at" {
+				t.Fatalf("unexpected access token: %s", r.URL.Query().Get("access_token"))
+			}
+			body, _ := io.ReadAll(r.Body)
+			if !strings.Contains(string(body), `"scene":"order=123"`) {
+				t.Fatalf("unexpected request body: %s", string(body))
+			}
+			w.Header().Set("Content-Type", "image/png")
+			_, _ = w.Write([]byte{0x89, 0x50, 0x4e, 0x47, 0x01, 0x02})
+		}))
+		defer srv.Close()
+
+		c := NewClient(WithBaseURL(srv.URL), WithHTTPClient(srv.Client()))
+		img, err := c.FetchWxaCodeUnlimited(context.Background(), "at", WxaCodeUnlimitedRequest{
+			Scene:  "order=123",
+			Page:   "pages/index/index",
+			Width:  430,
+			EnvVer: "release",
+		})
+		if err != nil {
+			t.Fatalf("unexpected err: %v", err)
+		}
+		if len(img) == 0 || img[0] != 0x89 || img[1] != 0x50 {
+			t.Fatalf("unexpected image bytes: %v", img)
+		}
+	})
+
+	t.Run("wechat_error_json", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			_, _ = w.Write([]byte(`{"errcode":41030,"errmsg":"invalid page hint"}`))
+		}))
+		defer srv.Close()
+
+		c := NewClient(WithBaseURL(srv.URL), WithHTTPClient(srv.Client()))
+		_, err := c.FetchWxaCodeUnlimited(context.Background(), "at", WxaCodeUnlimitedRequest{
+			Scene: "order=123",
+			Page:  "bad-page",
+		})
+		if err == nil || !strings.Contains(err.Error(), "errcode=41030") {
+			t.Fatalf("unexpected err: %v", err)
+		}
+	})
+
+	t.Run("scene_required", func(t *testing.T) {
+		c := NewClient()
+		_, err := c.FetchWxaCodeUnlimited(context.Background(), "at", WxaCodeUnlimitedRequest{})
+		if err == nil || !strings.Contains(err.Error(), "scene is required") {
+			t.Fatalf("unexpected err: %v", err)
+		}
+	})
+
+	t.Run("scene_too_long", func(t *testing.T) {
+		c := NewClient()
+		_, err := c.FetchWxaCodeUnlimited(context.Background(), "at", WxaCodeUnlimitedRequest{
+			Scene: strings.Repeat("a", 33),
+		})
+		if err == nil || !strings.Contains(err.Error(), "scene length must be <= 32") {
+			t.Fatalf("unexpected err: %v", err)
+		}
+	})
+
+	t.Run("width_out_of_range", func(t *testing.T) {
+		c := NewClient()
+		_, err := c.FetchWxaCodeUnlimited(context.Background(), "at", WxaCodeUnlimitedRequest{
+			Scene: "ok=1",
+			Width: 200,
+		})
+		if err == nil || !strings.Contains(err.Error(), "width must be between 280 and 1280") {
+			t.Fatalf("unexpected err: %v", err)
+		}
+	})
+}
+
 func TestHTTPStatusError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadGateway)
@@ -302,6 +381,8 @@ func TestGlobalWrappers(t *testing.T) {
 			_, _ = w.Write([]byte(`{"openid":"oid","nickname":"nick","headimgurl":"img"}`))
 		case "/sns/oauth2/refresh_token":
 			_, _ = w.Write([]byte(`{"access_token":"new-at","expires_in":7200}`))
+		case "/wxa/getwxacodeunlimit":
+			_, _ = w.Write([]byte{0x89, 0x50, 0x4e, 0x47})
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -344,6 +425,9 @@ func TestGlobalWrappers(t *testing.T) {
 		t.Fatalf("unexpected err: %v", err)
 	}
 	if _, err := WechatFetchWxSign(context.Background(), "a", "b", "https://x"); err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+	if _, err := WechatFetchWxaCodeUnlimited(context.Background(), "at", WxaCodeUnlimitedRequest{Scene: "id=1"}); err != nil {
 		t.Fatalf("unexpected err: %v", err)
 	}
 }

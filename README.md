@@ -50,6 +50,7 @@ func main() {
 - [examples/basic/main.go](/Users/jackman/Desktop/projects/wechat-ease/examples/basic/main.go)
 - [examples/oauth/main.go](/Users/jackman/Desktop/projects/wechat-ease/examples/oauth/main.go)
 - [examples/template/main.go](/Users/jackman/Desktop/projects/wechat-ease/examples/template/main.go)
+- [examples/wxacode/main.go](/Users/jackman/Desktop/projects/wechat-ease/examples/wxacode/main.go)
 
 ## 主要 API
 
@@ -63,6 +64,22 @@ func main() {
 - `FetchSnsUserInfo`
 - `FetchSnsRefreshToken`
 - `FetchWxSign`
+- `FetchWxaCodeUnlimited`
+
+## 小程序码接口示例
+
+```go
+img, err := client.FetchWxaCodeUnlimited(ctx, accessToken, wechatease.WxaCodeUnlimitedRequest{
+	Scene:  "order=12345",
+	Page:   "pages/order/detail",
+	EnvVer: "release",
+	Width:  430,
+})
+if err != nil {
+	panic(err)
+}
+_ = img // 成功时为图片二进制
+```
 
 ## 运行测试
 

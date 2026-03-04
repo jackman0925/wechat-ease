@@ -7,8 +7,13 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-03-04
+
 ### Added
 - Added `CHANGELOG.md` for ongoing release notes.
+- Added `wxacode.getUnlimited` support via `FetchWxaCodeUnlimited` and `WechatFetchWxaCodeUnlimited`.
+- Added request structs for mini-program code generation (`WxaCodeUnlimitedRequest`, `WxaCodeLineColor`).
+- Added unit tests for binary image success and JSON error responses of `wxacode.getUnlimited`.
 
 ## [0.1.0] - 2026-02-25
 
