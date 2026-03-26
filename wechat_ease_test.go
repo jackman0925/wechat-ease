@@ -94,6 +94,58 @@ func TestFetchAccessTokenWithRetry(t *testing.T) {
 	}
 }
 
+func TestCheckSession(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path != "/wxa/checksession" {
+				t.Fatalf("unexpected path: %s", r.URL.Path)
+			}
+			q := r.URL.Query()
+			if q.Get("access_token") != "at" || q.Get("openid") != "oid" || q.Get("signature") != "sig" || q.Get("sig_method") != "hmac_sha256" {
+				t.Fatalf("unexpected query: %v", q)
+			}
+			_, _ = w.Write([]byte(`{"errcode":0,"errmsg":"ok"}`))
+		}))
+		defer srv.Close()
+
+		c := NewClient(WithBaseURL(srv.URL), WithHTTPClient(srv.Client()))
+		if err := c.CheckSession(context.Background(), "at", "oid", "sig", "hmac_sha256"); err != nil {
+			t.Fatalf("unexpected err: %v", err)
+		}
+	})
+
+	t.Run("wechat_error", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			_, _ = w.Write([]byte(`{"errcode":87009,"errmsg":"invalid signature"}`))
+		}))
+		defer srv.Close()
+
+		c := NewClient(WithBaseURL(srv.URL), WithHTTPClient(srv.Client()))
+		if err := c.CheckSession(context.Background(), "at", "oid", "sig", "hmac_sha256"); err == nil || !strings.Contains(err.Error(), "errcode=87009") {
+			t.Fatalf("unexpected err: %v", err)
+		}
+	})
+
+	t.Run("invalid_params", func(t *testing.T) {
+		c := NewClient()
+		if err := c.CheckSession(context.Background(), "", "oid", "sig", "hmac_sha256"); err == nil {
+			t.Fatalf("expected error for empty access_token")
+		}
+		if err := c.CheckSession(context.Background(), "at", "", "sig", "hmac_sha256"); err == nil {
+			t.Fatalf("expected error for empty openid")
+		}
+		if err := c.CheckSession(context.Background(), "at", "oid", "", "hmac_sha256"); err == nil {
+			t.Fatalf("expected error for empty signature")
+		}
+		if err := c.CheckSession(context.Background(), "at", "oid", "sig", ""); err == nil {
+			t.Fatalf("expected error for empty sig_method")
+		}
+		if err := c.CheckSession(context.Background(), "at", "oid", "sig", "md5"); err == nil {
+			t.Fatalf("expected error for unsupported sig_method")
+		}
+	})
+}
+
 func TestFetchAccessTokenWithRetryFail(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"errcode":-1,"errmsg":"busy"}`))
@@ -383,6 +435,8 @@ func TestGlobalWrappers(t *testing.T) {
 			_, _ = w.Write([]byte(`{"access_token":"new-at","expires_in":7200}`))
 		case "/wxa/getwxacodeunlimit":
 			_, _ = w.Write([]byte{0x89, 0x50, 0x4e, 0x47})
+		case "/wxa/checksession":
+			_, _ = w.Write([]byte(`{"errcode":0,"errmsg":"ok"}`))
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -428,6 +482,9 @@ func TestGlobalWrappers(t *testing.T) {
 		t.Fatalf("unexpected err: %v", err)
 	}
 	if _, err := WechatFetchWxaCodeUnlimited(context.Background(), "at", WxaCodeUnlimitedRequest{Scene: "id=1"}); err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+	if err := WechatCheckSession(context.Background(), "at", "oid", "sig", "hmac_sha256"); err != nil {
 		t.Fatalf("unexpected err: %v", err)
 	}
 }

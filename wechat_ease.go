@@ -356,6 +356,38 @@ func (c *Client) FetchUserOpenID(ctx context.Context, appID, appSecret, code str
 	return resp.OpenID, resp.UnionID, resp.SessionKey, nil
 }
 
+// CheckSession 校验服务器保存的 session_key 是否仍然有效（/wxa/checksession）。参考: https://developers.weixin.qq.com/minigame/dev/api-backend/open-api/login/auth.checkSessionKey.html
+func (c *Client) CheckSession(ctx context.Context, accessToken, openid, signature, sigMethod string) error {
+	if strings.TrimSpace(accessToken) == "" {
+		return c.wrapError(ctx, fmt.Errorf("access_token is required"))
+	}
+	if strings.TrimSpace(openid) == "" {
+		return c.wrapError(ctx, fmt.Errorf("openid is required"))
+	}
+	if strings.TrimSpace(signature) == "" {
+		return c.wrapError(ctx, fmt.Errorf("signature is required"))
+	}
+	sigMethod = strings.TrimSpace(sigMethod)
+	if sigMethod == "" {
+		return c.wrapError(ctx, fmt.Errorf("sig_method is required"))
+	}
+	if sigMethod != "hmac_sha256" {
+		return c.wrapError(ctx, fmt.Errorf("sig_method must be hmac_sha256"))
+	}
+
+	query := url.Values{
+		"access_token": {accessToken},
+		"signature":    {signature},
+		"openid":       {openid},
+		"sig_method":   {sigMethod},
+	}
+	var resp BaseResponse
+	if err := c.doJSON(ctx, http.MethodGet, "/wxa/checksession", query, nil, &resp); err != nil {
+		return err
+	}
+	return c.wrapError(ctx, resp.Check())
+}
+
 // FetchAccessToken 获取公众号基础 access_token。
 func (c *Client) FetchAccessToken(ctx context.Context, appID, appSecret string) (string, int64, error) {
 	query := url.Values{
@@ -578,6 +610,11 @@ var defaultClient = NewClient()
 // WechatFetchUserOpenId 小程序 code 换 openid。
 func WechatFetchUserOpenId(ctx context.Context, appID, appSecret, code string) (openid, unionid, sessionKey string, err error) {
 	return defaultClient.FetchUserOpenID(ctx, appID, appSecret, code)
+}
+
+// WechatCheckSession 校验 session_key 是否有效。
+func WechatCheckSession(ctx context.Context, accessToken, openid, signature, sigMethod string) error {
+	return defaultClient.CheckSession(ctx, accessToken, openid, signature, sigMethod)
 }
 
 // WechatFetchAccessTokenTry3Time 获取 access_token（默认重试）。

@@ -47,16 +47,19 @@ func main() {
 
 ## 示例目录
 
-- [examples/basic/main.go](/Users/jackman/Desktop/projects/wechat-ease/examples/basic/main.go)
-- [examples/oauth/main.go](/Users/jackman/Desktop/projects/wechat-ease/examples/oauth/main.go)
-- [examples/template/main.go](/Users/jackman/Desktop/projects/wechat-ease/examples/template/main.go)
-- [examples/wxacode/main.go](/Users/jackman/Desktop/projects/wechat-ease/examples/wxacode/main.go)
+- [examples/basic/main.go](examples/basic/main.go)
+- [examples/checksession/main.go](examples/checksession/main.go)
+- [examples/oauth/main.go](examples/oauth/main.go)
+- [examples/signature/main.go](examples/signature/main.go)
+- [examples/template/main.go](examples/template/main.go)
+- [examples/wxacode/main.go](examples/wxacode/main.go)
 
 ## 主要 API
 
 - `FetchUserOpenID`
 - `FetchAccessToken`
 - `FetchAccessTokenWithRetry`
+- `CheckSession`
 - `PostTemplate`
 - `PostTemplateDirectly`
 - `FetchJsapiTicket`
