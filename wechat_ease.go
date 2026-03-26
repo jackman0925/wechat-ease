@@ -338,7 +338,7 @@ func (c *Client) sleepRetry(ctx context.Context, n int) error {
 	}
 }
 
-// FetchUserOpenID 小程序 code 换 openid/unionid/session_key。
+// FetchUserOpenID 小程序 code 换 openid/unionid/session_key。 参考: https://developers.weixin.qq.com/minigame/dev/api-backend/open-api/login/auth.code2Session.html
 func (c *Client) FetchUserOpenID(ctx context.Context, appID, appSecret, code string) (openid, unionid, sessionKey string, err error) {
 	query := url.Values{
 		"appid":      {appID},
