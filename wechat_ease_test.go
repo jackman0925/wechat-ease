@@ -146,6 +146,118 @@ func TestCheckSession(t *testing.T) {
 	})
 }
 
+func TestRefundOrder(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path != "/xpay/refund_order" {
+				t.Fatalf("unexpected path: %s", r.URL.Path)
+			}
+			q := r.URL.Query()
+			if q.Get("access_token") != "at" || q.Get("pay_sig") != "psig" {
+				t.Fatalf("unexpected query: %v", q)
+			}
+			body, _ := io.ReadAll(r.Body)
+			if !strings.Contains(string(body), `"refund_order_id":"refund1234"`) {
+				t.Fatalf("unexpected body: %s", string(body))
+			}
+			_, _ = w.Write([]byte(`{"errcode":0,"errmsg":"ok","refund_order_id":"refund1234","refund_wx_order_id":"rwx","pay_order_id":"pay1","pay_wx_order_id":"pwx"}`))
+		}))
+		defer srv.Close()
+
+		c := NewClient(WithBaseURL(srv.URL), WithHTTPClient(srv.Client()))
+		resp, err := c.RefundOrder(context.Background(), "at", "psig", RefundOrderRequest{
+			OpenID:        "oid",
+			OrderID:       "order123",
+			RefundOrderID: "refund1234",
+			LeftFee:       100,
+			RefundFee:     50,
+			RefundReason:  1,
+			ReqFrom:       2,
+			Env:           0,
+		})
+		if err != nil {
+			t.Fatalf("unexpected err: %v", err)
+		}
+		if resp.RefundOrderID != "refund1234" || resp.PayOrderID != "pay1" {
+			t.Fatalf("unexpected response: %+v", resp)
+		}
+	})
+
+	t.Run("wechat_error", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			_, _ = w.Write([]byte(`{"errcode":40001,"errmsg":"invalid credential"}`))
+		}))
+		defer srv.Close()
+
+		c := NewClient(WithBaseURL(srv.URL), WithHTTPClient(srv.Client()))
+		_, err := c.RefundOrder(context.Background(), "at", "psig", RefundOrderRequest{
+			OpenID:        "oid",
+			OrderID:       "order123",
+			RefundOrderID: "refund1234",
+			LeftFee:       100,
+			RefundFee:     50,
+		})
+		if err == nil || !strings.Contains(err.Error(), "errcode=40001") {
+			t.Fatalf("unexpected err: %v", err)
+		}
+	})
+
+	t.Run("invalid_params", func(t *testing.T) {
+		c := NewClient()
+		if _, err := c.RefundOrder(context.Background(), "", "psig", RefundOrderRequest{}); err == nil {
+			t.Fatalf("expected error for empty access_token")
+		}
+		if _, err := c.RefundOrder(context.Background(), "at", "", RefundOrderRequest{}); err == nil {
+			t.Fatalf("expected error for empty pay_sig")
+		}
+		if _, err := c.RefundOrder(context.Background(), "at", "psig", RefundOrderRequest{}); err == nil {
+			t.Fatalf("expected error for empty openid")
+		}
+		if _, err := c.RefundOrder(context.Background(), "at", "psig", RefundOrderRequest{OpenID: "oid"}); err == nil {
+			t.Fatalf("expected error for empty refund_order_id")
+		}
+		if _, err := c.RefundOrder(context.Background(), "at", "psig", RefundOrderRequest{
+			OpenID:        "oid",
+			RefundOrderID: "short",
+		}); err == nil {
+			t.Fatalf("expected error for short refund_order_id")
+		}
+		if _, err := c.RefundOrder(context.Background(), "at", "psig", RefundOrderRequest{
+			OpenID:        "oid",
+			RefundOrderID: "refund1234",
+		}); err == nil {
+			t.Fatalf("expected error for empty order_id and wx_order_id")
+		}
+		if _, err := c.RefundOrder(context.Background(), "at", "psig", RefundOrderRequest{
+			OpenID:        "oid",
+			RefundOrderID: "refund1234",
+			OrderID:       "order123",
+			LeftFee:       0,
+			RefundFee:     1,
+		}); err == nil {
+			t.Fatalf("expected error for left_fee")
+		}
+		if _, err := c.RefundOrder(context.Background(), "at", "psig", RefundOrderRequest{
+			OpenID:        "oid",
+			RefundOrderID: "refund1234",
+			OrderID:       "order123",
+			LeftFee:       10,
+			RefundFee:     0,
+		}); err == nil {
+			t.Fatalf("expected error for refund_fee")
+		}
+		if _, err := c.RefundOrder(context.Background(), "at", "psig", RefundOrderRequest{
+			OpenID:        "oid",
+			RefundOrderID: "refund1234",
+			OrderID:       "order123",
+			LeftFee:       10,
+			RefundFee:     20,
+		}); err == nil {
+			t.Fatalf("expected error for refund_fee > left_fee")
+		}
+	})
+}
+
 func TestFetchAccessTokenWithRetryFail(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"errcode":-1,"errmsg":"busy"}`))
@@ -437,6 +549,8 @@ func TestGlobalWrappers(t *testing.T) {
 			_, _ = w.Write([]byte{0x89, 0x50, 0x4e, 0x47})
 		case "/wxa/checksession":
 			_, _ = w.Write([]byte(`{"errcode":0,"errmsg":"ok"}`))
+		case "/xpay/refund_order":
+			_, _ = w.Write([]byte(`{"errcode":0,"errmsg":"ok","refund_order_id":"r1","refund_wx_order_id":"rwx","pay_order_id":"p1","pay_wx_order_id":"pwx"}`))
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -485,6 +599,15 @@ func TestGlobalWrappers(t *testing.T) {
 		t.Fatalf("unexpected err: %v", err)
 	}
 	if err := WechatCheckSession(context.Background(), "at", "oid", "sig", "hmac_sha256"); err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+	if _, err := WechatRefundOrder(context.Background(), "at", "psig", RefundOrderRequest{
+		OpenID:        "oid",
+		OrderID:       "order123",
+		RefundOrderID: "refund1234",
+		LeftFee:       100,
+		RefundFee:     1,
+	}); err != nil {
 		t.Fatalf("unexpected err: %v", err)
 	}
 }

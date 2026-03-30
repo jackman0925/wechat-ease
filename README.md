@@ -50,6 +50,7 @@ func main() {
 - [examples/basic/main.go](examples/basic/main.go)
 - [examples/checksession/main.go](examples/checksession/main.go)
 - [examples/oauth/main.go](examples/oauth/main.go)
+- [examples/refund_order/main.go](examples/refund_order/main.go)
 - [examples/signature/main.go](examples/signature/main.go)
 - [examples/template/main.go](examples/template/main.go)
 - [examples/wxacode/main.go](examples/wxacode/main.go)
@@ -60,6 +61,7 @@ func main() {
 - `FetchAccessToken`
 - `FetchAccessTokenWithRetry`
 - `CheckSession`
+- `RefundOrder`
 - `PostTemplate`
 - `PostTemplateDirectly`
 - `FetchJsapiTicket`
