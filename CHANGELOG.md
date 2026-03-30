@@ -7,6 +7,12 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-03-30
+
+### Added
+- Added `xpay/refund_order` support via `RefundOrder` and `WechatRefundOrder`.
+- Added `xpay/notify_provide_goods` support via `NotifyProvideGoods` and `WechatNotifyProvideGoods`.
+
 
 ## [0.1.2] - 2026-03-26
 

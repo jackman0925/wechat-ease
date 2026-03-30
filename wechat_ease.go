@@ -136,6 +136,13 @@ type RefundOrderResponse struct {
 	PayWxOrderID    string `json:"pay_wx_order_id"`
 }
 
+// NotifyProvideGoodsRequest 通知已发货请求体（xpay/notify_provide_goods）。
+type NotifyProvideGoodsRequest struct {
+	OrderID   string `json:"order_id,omitempty"`
+	WxOrderID string `json:"wx_order_id,omitempty"`
+	Env       int    `json:"env,omitempty"`
+}
+
 // ErrorInterceptor 用于在错误返回前做统一拦截（包装、打点、上报等）。
 type ErrorInterceptor func(ctx context.Context, err error) error
 
@@ -460,6 +467,34 @@ func (c *Client) RefundOrder(ctx context.Context, accessToken, paySig string, re
 	return &resp, nil
 }
 
+// NotifyProvideGoods 通知已经发货完成（xpay/notify_provide_goods）。
+// 仅在 xpay_goods_deliver_notify 推送失败的异常场景下使用。
+func (c *Client) NotifyProvideGoods(ctx context.Context, accessToken, paySig string, req NotifyProvideGoodsRequest) error {
+	if strings.TrimSpace(accessToken) == "" {
+		return c.wrapError(ctx, fmt.Errorf("access_token is required"))
+	}
+	if strings.TrimSpace(paySig) == "" {
+		return c.wrapError(ctx, fmt.Errorf("pay_sig is required"))
+	}
+	if strings.TrimSpace(req.OrderID) == "" && strings.TrimSpace(req.WxOrderID) == "" {
+		return c.wrapError(ctx, fmt.Errorf("order_id or wx_order_id is required"))
+	}
+
+	query := url.Values{
+		"access_token": {accessToken},
+		"pay_sig":      {paySig},
+	}
+	body, err := json.Marshal(req)
+	if err != nil {
+		return c.wrapError(ctx, fmt.Errorf("marshal notify_provide_goods request failed: %w", err))
+	}
+	var resp BaseResponse
+	if err := c.doJSON(ctx, http.MethodPost, "/xpay/notify_provide_goods", query, body, &resp); err != nil {
+		return err
+	}
+	return c.wrapError(ctx, resp.Check())
+}
+
 // FetchAccessToken 获取公众号基础 access_token。
 func (c *Client) FetchAccessToken(ctx context.Context, appID, appSecret string) (string, int64, error) {
 	query := url.Values{
@@ -692,6 +727,11 @@ func WechatCheckSession(ctx context.Context, accessToken, openid, signature, sig
 // WechatRefundOrder 发起微信虚拟支付退款任务（xpay/refund_order）。
 func WechatRefundOrder(ctx context.Context, accessToken, paySig string, req RefundOrderRequest) (*RefundOrderResponse, error) {
 	return defaultClient.RefundOrder(ctx, accessToken, paySig, req)
+}
+
+// WechatNotifyProvideGoods 通知已经发货完成（xpay/notify_provide_goods）。
+func WechatNotifyProvideGoods(ctx context.Context, accessToken, paySig string, req NotifyProvideGoodsRequest) error {
+	return defaultClient.NotifyProvideGoods(ctx, accessToken, paySig, req)
 }
 
 // WechatFetchAccessTokenTry3Time 获取 access_token（默认重试）。
