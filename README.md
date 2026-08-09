@@ -53,6 +53,7 @@ func main() {
 - [examples/oauth/main.go](examples/oauth/main.go)
 - [examples/refund_order/main.go](examples/refund_order/main.go)
 - [examples/signature/main.go](examples/signature/main.go)
+- [examples/submit_pages/main.go](examples/submit_pages/main.go)
 - [examples/template/main.go](examples/template/main.go)
 - [examples/wxacode/main.go](examples/wxacode/main.go)
 
@@ -64,6 +65,7 @@ func main() {
 - `CheckSession`
 - `RefundOrder`
 - `NotifyProvideGoods`
+- `SubmitPages`
 - `PostTemplate`
 - `PostTemplateDirectly`
 - `FetchJsapiTicket`
@@ -93,6 +95,12 @@ _ = img // 成功时为图片二进制
 ```bash
 go test ./...
 ```
+
+## 维护约束
+
+- 每个方法必须有对应的单元测试。
+- 任意 Go 代码文件不得超过 500 行。
+- `go test ./...` 会自动校验以上两项约束。
 
 ## 设计原则
 

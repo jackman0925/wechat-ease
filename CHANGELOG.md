@@ -7,6 +7,17 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-08-09
+### Added
+- Added WeChat Search page submission through `SubmitPages` and `WechatSubmitPages` without automatic retries.
+- Added automated checks requiring method-level unit tests and limiting Go files to 500 lines.
+- 增加小程序“订阅消息” (Subscribe Message) 的支持
+  当前代码只包含公众号的 cgi-bin/message/template/send (模板消息)。但在小程序生态中，订阅消息 (cgi-bin/message/subscribe/send) 才是目前被广泛使用的推送方式。
+
+### Changed
+- Split the library and tests into focused files by domain; no Go file exceeds 500 lines.
+
+
 ## [0.1.3] - 2026-03-30
 
 ### Added
