@@ -10,6 +10,7 @@
 - 内置超时、重试、退避
 - 统一微信业务错误结构（`errcode` / `errmsg`）
 - 支持错误拦截器，便于日志、打点、监控
+- 支持微信服务器回调签名生成与校验
 - 提供全局便捷函数，兼容快速接入场景
 
 ## 安装与要求
@@ -48,6 +49,7 @@ func main() {
 ## 示例目录
 
 - [examples/basic/main.go](examples/basic/main.go)
+- [examples/callback_signature/main.go](examples/callback_signature/main.go)
 - [examples/checksession/main.go](examples/checksession/main.go)
 - [examples/notify_provide_goods/main.go](examples/notify_provide_goods/main.go)
 - [examples/oauth/main.go](examples/oauth/main.go)
@@ -74,6 +76,23 @@ func main() {
 - `FetchSnsRefreshToken`
 - `FetchWxSign`
 - `FetchWxaCodeUnlimited`
+- `GenerateCallbackSignature`
+- `VerifyCallbackSignature`
+
+## 微信服务器回调签名
+
+库只负责签名计算与校验，不绑定 Gin、Echo 等 Web 框架：
+
+```go
+if !wechatease.VerifyCallbackSignature(token, timestamp, nonce, signature) {
+	// 返回 403
+	return
+}
+
+// 首次配置服务器 URL 时，验证成功后原样返回 echostr。
+```
+
+完整的 `net/http` 接入示例参见 [examples/callback_signature/main.go](examples/callback_signature/main.go)。
 
 ## 小程序码接口示例
 
