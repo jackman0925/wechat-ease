@@ -7,11 +7,13 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
-## [0.2.1] - 2026-11-03
+## [0.2.2] - 2026-11-03
 
 ### 新增
 - 新增与 Web 框架无关的微信回调签名生成与校验函数：`GenerateCallbackSignature` 和 `VerifyCallbackSignature`。
 - 新增基于 Go 标准库 `net/http` 的回调示例：`examples/callback_signature`。
+- 新增基于 `EncodingAESKey` 的安全模式消息验签、AES 加解密和 AppID 校验能力。
+- 新增加密消息回调示例：`examples/encrypted_callback`。
 
 ## [0.2.0] - 2026-08-09
 ### Added

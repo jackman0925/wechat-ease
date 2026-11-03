@@ -11,6 +11,7 @@
 - 统一微信业务错误结构（`errcode` / `errmsg`）
 - 支持错误拦截器，便于日志、打点、监控
 - 支持微信服务器回调签名生成与校验
+- 支持基于 `EncodingAESKey` 的安全模式消息加解密
 - 提供全局便捷函数，兼容快速接入场景
 
 ## 安装与要求
@@ -51,6 +52,7 @@ func main() {
 - [examples/basic/main.go](examples/basic/main.go)
 - [examples/callback_signature/main.go](examples/callback_signature/main.go)
 - [examples/checksession/main.go](examples/checksession/main.go)
+- [examples/encrypted_callback/main.go](examples/encrypted_callback/main.go)
 - [examples/notify_provide_goods/main.go](examples/notify_provide_goods/main.go)
 - [examples/oauth/main.go](examples/oauth/main.go)
 - [examples/refund_order/main.go](examples/refund_order/main.go)
@@ -78,6 +80,9 @@ func main() {
 - `FetchWxaCodeUnlimited`
 - `GenerateCallbackSignature`
 - `VerifyCallbackSignature`
+- `NewMessageCryptor`
+- `GenerateEncryptedCallbackSignature`
+- `VerifyEncryptedCallbackSignature`
 
 ## 微信服务器回调签名
 
@@ -93,6 +98,26 @@ if !wechatease.VerifyCallbackSignature(token, timestamp, nonce, signature) {
 ```
 
 完整的 `net/http` 接入示例参见 [examples/callback_signature/main.go](examples/callback_signature/main.go)。
+
+## 安全模式消息加解密
+
+```go
+cryptor, err := wechatease.NewMessageCryptor(token, encodingAESKey, appID)
+if err != nil {
+	panic(err)
+}
+
+// Encrypt 为请求 XML 或 JSON 中提取的密文字段。
+message, err := cryptor.DecryptMessage(timestamp, nonce, msgSignature, encrypt)
+if err != nil {
+	panic(err)
+}
+
+// 安全模式下回复消息时，同样需要加密并返回签名。
+reply, err := cryptor.EncryptMessage([]byte(replyXML), timestamp, nonce)
+```
+
+`DecryptMessage` 会依次完成消息签名校验、AES-256-CBC 解密、PKCS#7 去填充及 AppID 校验。完整示例参见 [examples/encrypted_callback/main.go](examples/encrypted_callback/main.go)。
 
 ## 小程序码接口示例
 
