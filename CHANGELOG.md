@@ -7,6 +7,8 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-11-05
+
 ### 新增
 - 新增 `event` 子包，用于解析外部系统已验签、解密后的小程序平台通知 JSON。
 - 新增 `wxa_punish_event`（小程序违规处罚信息通知）强类型解析，并兼容 `illegal_content` 的字符串和数组格式。
