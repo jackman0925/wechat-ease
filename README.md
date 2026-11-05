@@ -87,6 +87,7 @@ func main() {
 - `GenerateEncryptedCallbackSignature`
 - `VerifyEncryptedCallbackSignature`
 - `event.ParsePlatformEventJSON`
+- `event.ParsePlatformEvent`
 - `event.ParsePenaltyViolationJSON`
 - `event.ParseAuthorizedUserInformationChangeJSON`
 
@@ -127,10 +128,10 @@ reply, err := cryptor.EncryptMessage([]byte(replyXML), timestamp, nonce)
 
 ## 小程序平台事件解析
 
-`event` 子包只解析外部系统已验签、解密后的 JSON 正文，不依赖 HTTP 或 Web 框架。已支持 `wxa_punish_event`（小程序违规处罚信息通知）和授权用户信息变更事件；未知事件会以 `UnknownPlatformEvent` 返回并保留原始 JSON。
+`event` 子包只解析外部系统已验签、解密后的通知正文，不依赖 HTTP 或 Web 框架。推荐使用 `ParsePlatformEvent`：正文以 `{` 开头时按 JSON 解析，以 `<` 开头时按 XML 解析。已支持 `wxa_punish_event`（小程序违规处罚信息通知）和授权用户信息变更事件；未知事件会以 `UnknownPlatformEvent` 返回并保留规范化 JSON。
 
 ```go
-notification, err := wechatevent.ParsePlatformEventJSON(body)
+notification, err := wechatevent.ParsePlatformEvent(body)
 if err != nil {
 	panic(err)
 }

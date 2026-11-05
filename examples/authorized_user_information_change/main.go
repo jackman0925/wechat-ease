@@ -15,7 +15,7 @@ func main() {
 "RevokeInfo":"6"
 }`)
 
-	notification, err := wechatevent.ParsePlatformEventJSON(body)
+	notification, err := wechatevent.ParsePlatformEvent(body)
 	if err != nil {
 		panic(err)
 	}

@@ -17,7 +17,7 @@ func main() {
 "event_type":1
 }`)
 
-	notification, err := wechatevent.ParsePlatformEventJSON(body)
+	notification, err := wechatevent.ParsePlatformEvent(body)
 	if err != nil {
 		panic(err)
 	}

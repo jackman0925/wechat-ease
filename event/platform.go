@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	// ErrInvalidPlatformEvent 表示通知正文不是合法的平台事件 JSON。
+	// ErrInvalidPlatformEvent 表示通知正文不是合法的平台事件 JSON 或 XML。
 	ErrInvalidPlatformEvent = errors.New("invalid platform event")
 	// ErrMissingEventName 表示通知正文缺少用于路由的 Event 字段。
 	ErrMissingEventName = errors.New("missing platform event name")
@@ -51,7 +51,8 @@ func (event BasePlatformEvent) EventName() string {
 	return event.Event
 }
 
-// RawJSON 返回通知正文的副本，避免调用方意外修改解析结果。
+// RawJSON 返回通知正文的 JSON 副本，避免调用方意外修改解析结果。
+// XML 输入会先规范化为等价 JSON 后再进行事件解析。
 func (event BasePlatformEvent) RawJSON() json.RawMessage {
 	return append(json.RawMessage(nil), event.raw...)
 }
