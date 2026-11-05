@@ -12,6 +12,7 @@
 - 支持错误拦截器，便于日志、打点、监控
 - 支持微信服务器回调签名生成与校验
 - 支持基于 `EncodingAESKey` 的安全模式消息加解密
+- 支持已解密小程序平台通知的强类型 JSON 解析
 - 提供全局便捷函数，兼容快速接入场景
 
 ## 安装与要求
@@ -50,11 +51,13 @@ func main() {
 ## 示例目录
 
 - [examples/basic/main.go](examples/basic/main.go)
+- [examples/authorized_user_information_change/main.go](examples/authorized_user_information_change/main.go)
 - [examples/callback_signature/main.go](examples/callback_signature/main.go)
 - [examples/checksession/main.go](examples/checksession/main.go)
 - [examples/encrypted_callback/main.go](examples/encrypted_callback/main.go)
 - [examples/notify_provide_goods/main.go](examples/notify_provide_goods/main.go)
 - [examples/oauth/main.go](examples/oauth/main.go)
+- [examples/penalty_violation/main.go](examples/penalty_violation/main.go)
 - [examples/refund_order/main.go](examples/refund_order/main.go)
 - [examples/signature/main.go](examples/signature/main.go)
 - [examples/submit_pages/main.go](examples/submit_pages/main.go)
@@ -83,6 +86,9 @@ func main() {
 - `NewMessageCryptor`
 - `GenerateEncryptedCallbackSignature`
 - `VerifyEncryptedCallbackSignature`
+- `event.ParsePlatformEventJSON`
+- `event.ParsePenaltyViolationJSON`
+- `event.ParseAuthorizedUserInformationChangeJSON`
 
 ## 微信服务器回调签名
 
@@ -118,6 +124,23 @@ reply, err := cryptor.EncryptMessage([]byte(replyXML), timestamp, nonce)
 ```
 
 `DecryptMessage` 会依次完成消息签名校验、AES-256-CBC 解密、PKCS#7 去填充及 AppID 校验。完整示例参见 [examples/encrypted_callback/main.go](examples/encrypted_callback/main.go)。
+
+## 小程序平台事件解析
+
+`event` 子包只解析外部系统已验签、解密后的 JSON 正文，不依赖 HTTP 或 Web 框架。已支持 `wxa_punish_event`（小程序违规处罚信息通知）和授权用户信息变更事件；未知事件会以 `UnknownPlatformEvent` 返回并保留原始 JSON。
+
+```go
+notification, err := wechatevent.ParsePlatformEventJSON(body)
+if err != nil {
+	panic(err)
+}
+
+if penalty, ok := notification.(*wechatevent.PenaltyViolationEvent); ok {
+	fmt.Println(penalty.PunishID)
+}
+```
+
+完整示例参见 [examples/penalty_violation/main.go](examples/penalty_violation/main.go)。
 
 ## 小程序码接口示例
 

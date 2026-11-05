@@ -45,34 +45,49 @@ func TestGoFilesStayMaintainable(t *testing.T) {
 }
 
 func TestMethodsHaveUnitTests(t *testing.T) {
-	entries, err := os.ReadDir(".")
-	if err != nil {
-		t.Fatalf("read package directory: %v", err)
-	}
-
-	testNames := make(map[string]struct{})
-	var methods []methodName
+	testNamesByDir := make(map[string]map[string]struct{})
+	methodsByDir := make(map[string][]methodName)
 	fset := token.NewFileSet()
-	for _, entry := range entries {
-		if entry.IsDir() || filepath.Ext(entry.Name()) != ".go" {
-			continue
+	err := filepath.WalkDir(".", func(path string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
 		}
-		file, err := parser.ParseFile(fset, entry.Name(), nil, 0)
+		if entry.IsDir() {
+			if path == ".git" || strings.HasPrefix(path, ".git"+string(filepath.Separator)) {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if filepath.Ext(path) != ".go" {
+			return nil
+		}
+		file, err := parser.ParseFile(fset, path, nil, 0)
 		if err != nil {
-			t.Fatalf("parse %s: %v", entry.Name(), err)
+			return fmt.Errorf("parse %s: %w", path, err)
 		}
-		if strings.HasSuffix(entry.Name(), "_test.go") {
-			collectTestNames(file, testNames)
-			continue
+		dir := filepath.Dir(path)
+		if strings.HasSuffix(path, "_test.go") {
+			if testNamesByDir[dir] == nil {
+				testNamesByDir[dir] = make(map[string]struct{})
+			}
+			collectTestNames(file, testNamesByDir[dir])
+			return nil
 		}
-		methods = append(methods, collectMethods(file)...)
+		methodsByDir[dir] = append(methodsByDir[dir], collectMethods(file)...)
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("walk Go files: %v", err)
 	}
 
-	for _, method := range methods {
-		methodCandidate := "Test" + upperFirst(method.name)
-		receiverCandidate := "Test" + upperFirst(method.receiver) + upperFirst(method.name)
-		if !hasTestName(testNames, receiverCandidate) && !hasTestName(testNames, methodCandidate) {
-			t.Errorf("method %s.%s has no unit test (expected %s or %s)", method.receiver, method.name, receiverCandidate, methodCandidate)
+	for dir, methods := range methodsByDir {
+		testNames := testNamesByDir[dir]
+		for _, method := range methods {
+			methodCandidate := "Test" + upperFirst(method.name)
+			receiverCandidate := "Test" + upperFirst(method.receiver) + upperFirst(method.name)
+			if !hasTestName(testNames, receiverCandidate) && !hasTestName(testNames, methodCandidate) {
+				t.Errorf("%s: method %s.%s has no unit test (expected %s or %s)", dir, method.receiver, method.name, receiverCandidate, methodCandidate)
+			}
 		}
 	}
 }
